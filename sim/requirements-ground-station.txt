@@ -1,0 +1,3 @@
+# Dépendance pour l'usage réel de sim/hab_sim/ground_station.py
+# (les tests, eux, n'ont pas besoin d'un vrai port série).
+pyserial>=3.5
