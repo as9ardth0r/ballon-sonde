@@ -1,76 +1,69 @@
 # ballon-sonde
 
-### Charge utile pour ballon-sonde stratosphérique — STM32L0, BME280, GPS, LoRa
+### Stratospheric weather balloon payload — STM32L0, BME280, GPS, LoRa
 
-Mesure température/humidité/pression et position GPS pendant l'ascension,
-transmet en continu par LoRa (pas besoin de récupérer la charge pour avoir
-les données), pensé pour un vol de plusieurs heures sur piles en froid
-stratosphérique.
+Measures temperature/humidity/pressure and GPS position throughout the
+ascent, transmitting continuously over LoRa (no need to recover the
+payload to get the data), designed for a multi-hour flight on batteries
+in stratospheric cold.
 
-## Ce qui est réel et vérifié (29 tests)
+## What's real and verified (29 tests)
 
-| Brique | Vérifié comment |
+| Component | Verified how |
 |---|---|
-| **Compensation BME280** (température/pression/humidité) | Formules Bosch (datasheet §4.2.3). Test contre l'atmosphère standard internationale (5000 m ↔ 54048 Pa, ±150 m de tolérance) |
-| **Parseur NMEA GGA** | Validé sur l'exemple canonique du standard NMEA, checksum recalculé par le code plutôt que recopié |
-| **Trame UBX-CFG-NAV5** (mode vol GPS) | Structure et checksum Fletcher vérifiés |
-| **Protocole de télémétrie LoRa** | Encodage/décodage C ↔ Python comparés via `ctypes` — **un vrai bug attrapé en cours de route** : `float` (simple précision) tronquait une latitude GPS à la 6ᵉ décimale, corrigé en `double` partout |
-| **Station sol** (`ground_station.py`) | Décodage/journalisation CSV testés (trames valides, bruit radio, checksum corrompu, round-trip CSV complet) |
-| **Firmware STM32L052** | Compile et **linke réellement** avec `arm-none-eabi-gcc` (46,5 Ko / 64 Ko de flash) contre les en-têtes CMSIS officiels ARM/ST |
-| **Pilotes I2C, UART, SPI** | Écrits spécifiquement pour le périphérique I2Cv2/USART "nouvelle génération" du STM32L0 — différents de ceux du projet nanodrone (STM32F405, I2Cv1), pas une copie adaptée à la hâte |
+| **BME280 compensation** (temperature/pressure/humidity) | Bosch formulas (datasheet §4.2.3). Tested against the International Standard Atmosphere (5000 m ↔ 54048 Pa, ±150 m tolerance) |
+| **NMEA GGA parser** | Validated against the canonical NMEA standard example, checksum recomputed by the code rather than copied |
+| **UBX-CFG-NAV5 frame** (GPS flight mode) | Structure and Fletcher checksum verified |
+| **LoRa telemetry protocol** | C ↔ Python encoding/decoding compared via `ctypes` — **a real bug caught along the way**: `float` (single precision) was truncating a GPS latitude at the 6th decimal, fixed to `double` throughout |
+| **Ground station** (`ground_station.py`) | CSV decoding/logging tested (valid frames, radio noise, corrupted checksum, full CSV round-trip) |
+| **STM32L052 firmware** | Actually compiles and **links** with `arm-none-eabi-gcc` (46.5 KB / 64 KB of flash) against official ARM/ST CMSIS headers |
+| **I2C, UART, SPI drivers** | Written specifically for the STM32L0's "new generation" I2Cv2/USART peripheral — different from the nanodrone project's (STM32F405, I2Cv1), not a hastily adapted copy |
 
-## Ce qui n'est PAS vérifié
+## What is NOT verified
 
-- **BME280 et LoRa (firmware)** : registres documentés publiquement, pilotes écrits en entier (contrairement au VL53L1X du nanodrone), mais pas testés sur un vrai capteur/module — aucun matériel disponible dans cet environnement de développement.
-- **La formule de compensation BME280 côté firmware** (`bme280.c`) reprend la même structure que `bme280_compensate.py`, mais n'a pas été comparée numériquement via `ctypes` comme `telemetry.c` — à faire si une garantie plus forte est utile.
-- **Aucun vol réel, aucune mesure sur banc.**
+- **BME280 and LoRa (firmware)**: publicly documented registers, drivers written in full (unlike the nanodrone's VL53L1X), but not tested on real sensor/module hardware — no hardware available in this development environment.
+- **The firmware-side BME280 compensation formula** (`bme280.c`) follows the same structure as `bme280_compensate.py`, but hasn't been numerically cross-checked via `ctypes` the way `telemetry.c` was — worth doing if a stronger guarantee is needed.
+- **No real flight, no bench measurement.**
 
-## Nomenclature, PCB, et calcul d'hydrogène
+## Bill of materials, PCB, and hydrogen calculation
 
-- **[docs/hardware.md](docs/hardware.md)** — nomenclature précise (référence,
-  poids, rôle), plan de brochage, points de vigilance spécifiques à un vol
-  stratosphérique (limite GPS, plage du BME280, piles), et **le calcul de
-  quantité d'hydrogène** (~0,6-0,7 m³ pour cette charge utile — voir le
-  détail du calcul et les réserves de sécurité/précision dans le document).
-- **[docs/pcb.md](docs/pcb.md)** — traitement plus léger que le projet
-  nanodrone (pas de courants forts) ; le vrai sujet ici est l'isolation
-  thermique, pas le routage.
-- **[docs/ground-station.md](docs/ground-station.md)** — matériel récepteur,
-  suivi pendant le vol, logistique de récupération.
+- **[docs/hardware.md](docs/hardware.md)** — precise bill of materials (part number, weight, role), pinout, points specific to a stratospheric flight (GPS limits, BME280 range, batteries), and **the hydrogen quantity calculation** (~0.6-0.7 m³ for this payload — see the full calculation and safety/precision margins in the document).
+- **[docs/pcb.md](docs/pcb.md)** — lighter treatment than the nanodrone project (no high currents); the real concern here is thermal insulation, not routing.
+- **[docs/ground-station.md](docs/ground-station.md)** — receiver hardware, in-flight tracking, recovery logistics.
 
-## Structure du dépôt
+## Repository structure
 
 ```
 sim/hab_sim/
-├── bme280_compensate.py   # compensation température/pression/humidité
-├── nmea.py                 # parseur GGA
-├── ubx.py                   # trame de config GPS (mode vol)
-├── telemetry.py               # protocole LoRa
-└── ground_station.py            # décodage + journalisation côté sol
+├── bme280_compensate.py   # temperature/pressure/humidity compensation
+├── nmea.py                 # GGA parser
+├── ubx.py                   # GPS config frame (flight mode)
+├── telemetry.py               # LoRa protocol
+└── ground_station.py            # ground-side decoding + logging
 firmware/
-├── Core/Inc, Core/Src        # pilotes réels (I2Cv2, UART, SPI, BME280, SX1276)
-├── Drivers/                    # en-têtes CMSIS vendorisés (STM32L0)
-├── startup/                     # linker script + démarrage (STM32L052K8Tx)
-└── Makefile                      # compilation arm-none-eabi-gcc
-tests/                             # 29 tests, dont 2 validations croisées C/Python
+├── Core/Inc, Core/Src        # real drivers (I2Cv2, UART, SPI, BME280, SX1276)
+├── Drivers/                    # vendored CMSIS headers (STM32L0)
+├── startup/                     # linker script + startup (STM32L052K8Tx)
+└── Makefile                      # arm-none-eabi-gcc build
+tests/                             # 29 tests, including 2 C/Python cross-validations
 docs/
-├── hardware.md                    # nomenclature + brochage + calcul H2
+├── hardware.md                    # bill of materials + pinout + H2 calculation
 ├── pcb.md
-└── ground-station.md                # matériel récepteur + récupération
-.github/workflows/build.yml          # CI : tests + compilation firmware
+└── ground-station.md                # receiver hardware + recovery
+.github/workflows/build.yml          # CI: tests + firmware compilation
 ```
 
-## Installation et usage
+## Installation and usage
 
 ```bash
 pip install -r sim/requirements.txt
 pytest tests/ -v                    # 24 tests
 
 cd firmware
-make                                 # produit build/hab_payload.elf
+make                                 # produces build/hab_payload.elf
 ```
 
-## Licence
+## License
 
-MIT pour le code original — voir `LICENSE`. Fichiers CMSIS vendorisés sous
-Apache 2.0 — voir `THIRD_PARTY_LICENSES.md`.
+MIT for original code — see `LICENSE`. Vendored CMSIS files under
+Apache 2.0 — see `THIRD_PARTY_LICENSES.md`.
